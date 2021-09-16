@@ -6,41 +6,61 @@ FileSort::FileSort()
 	auto i = std::thread::hardware_concurrency();
 	if (i > 0) threadsMaxCount_ = i;
 	vectorSize_ = MAX_MEMORY / (threadsMaxCount_ * sizeof(FILETYPE));
-	data_.reserve(vectorSize_);
 }
 
-void FileSort::startSort(const std::string& inputPath, const std::string& inputFile)
+void FileSort::startSort(const std::string& inputPath, const std::string& inputFile, const std::string& outputFile)
 {
 	inputPath_ = inputPath;
-	cout << "Start sorting file - " << inputPath_ + inputFile << "\n";
+	inputFile_ = inputFile;
+	outputFile_ = outputFile;
+	sortInput();
+}
+
+void FileSort::sortInput()
+{
+	cout << "Start sorting file - " << inputPath_ + inputFile_ << "\n";
 	std::ifstream input;
-	input.open(inputPath_ + inputFile, std::ios::binary);
+	input.open(inputPath_ + inputFile_, std::ios::binary);
 	FILETYPE buffer;
-	tempFileCount_ = 0;
+	auto tmpCount = 0;
 	size_t readCount = 0;
+	std::list<std::future<bool>> tasks;
 	while (!input.eof())
 	{
-//		VectorUInt data;
-//		data.reserve(vectorSize_);
-//		while (readCount < vectorSize_ && input.read(reinterpret_cast<char*>(&buffer), sizeof(FILETYPE)))
+		VectorUInt data;
+		data.reserve(vectorSize_);
 		while (readCount < vectorSize_ && input.read(reinterpret_cast<char*>(&buffer), sizeof(FILETYPE)))
 		{
 			++readCount;
-			data_.emplace_back(buffer);
+			data.emplace_back(buffer);
 		}
-		std::string fPath = inputPath_ + "tmpout" + std::to_string(tempFileCount_++);
-		cout << "Sorting and saving " << fPath << "\n";
-		std::thread thr1([&fPath, this]() {sortAndSave(fPath); });
-		thr1.join();
-//		sortAndSave(fPath);
+		auto ts = tasks.size();
+		if (tasks.size() < threadsMaxCount_-1)
+		{
+			tasks.emplace_back(std::async(std::launch::async, [&tmpCount, mdata = std::move(data), this]() mutable {
+				return sortAndSave(tmpCount++, std::move(mdata)); }));
+		}
+		else
+		{
+			tasks.front().get();
+			tasks.pop_front();
+			tasks.emplace_back(std::async(std::launch::async, [&tmpCount, mdata = std::move(data), this]() mutable {
+				return sortAndSave(tmpCount++, std::move(mdata)); }));
+		}
 		readCount = 0;
 	} 
 	input.close();
-	data_.reserve(0);
-	sortAndMerge(inputPath_ + "output");
+	auto tsize = tasks.size();
+	cout << "Wating.";
+	for_each(tasks.begin(), tasks.end(), [](auto& task) { 
+		cout << "."; 
+		task.get();});
+	cout << "Complete sorting.\n";
+	sortAndMerge("output");
 }
 
-void FileSort::sortAndSave(const std::string& outputFile)
+/*
+bool FileSort::sortAndSave(const std::string& outputFile)
 {
 	std::ofstream output;
 	std::sort(data_.begin(), data_.end());
@@ -51,50 +71,71 @@ void FileSort::sortAndSave(const std::string& outputFile)
 		output.close();
 	}
 	data_.clear();
+	return true;
 }
-
-void FileSort::sortAndSave(const std::string& outputFile, VectorUInt&& data)
+*/
+bool FileSort::sortAndSave(size_t fileIndex, VectorUInt&& data)
 {
+	const std::string& outputFile = "_" + std::to_string(fileIndex);
+	cout << "Sorting and saving to " << outputFile << "\n";
 	std::ofstream output;
 	std::sort(data.begin(), data.end());
- 	output.open(outputFile, std::ios::binary);
+	filesList_.emplace_back(outputFile);
+ 	output.open(inputPath_ + outputFile, std::ios::binary);
 	for_each(data.begin(), data.end(), [&output](FILETYPE i) {output.write(reinterpret_cast<const char*>(&i), sizeof(FILETYPE)); });
 	output.close();
+	return true;
 }
 
 void FileSort::sortAndMerge(const std::string& outputFile)
 {
-//	while (true)
+	std::list<std::future<bool>> tasks;
+	auto filesCount = filesList_.size();
+	size_t iterations = filesList_.size() / 2;
+	size_t iteration = 0;
+	auto commit = [&tasks]() mutable {	while (tasks.size() > 0)
 	{
-		size_t iteration = 0;
-		for (size_t i = 0; i < tempFileCount_; ++i)
+		tasks.front().get();
+		tasks.pop_front();
+		cout << ".";
+	} };
+	while (filesList_.size() > 2)
+	{
+		auto inFileName1 = filesList_.front();
+		filesList_.pop_front();
+		auto inFileName2 = filesList_.front();
+		filesList_.pop_front();
+		auto outfileName = inFileName1 + inFileName2;
+		filesList_.emplace_back(outfileName);		
+		cout << "Merge " << inFileName1 << " and " << inFileName2 << " into " << outfileName << "\n";
+		tasks.emplace_back(std::async(std::launch::async, [inFileName1, inFileName2, outfileName, this]() mutable {			
+			return merge(inFileName1, inFileName2, outfileName); }));
+		++iteration;
+		if (iteration >= iterations)
 		{
-			if (i + 1 < tempFileCount_)
-			{
-				cout << "Merge " << "tmpout" + std::to_string(i) << " and " << "tmpout" + std::to_string(i+1) << " into " << std::to_string(iteration) + std::to_string(i) << "\n";
-				merge(inputPath_ + "tmpout" + std::to_string(i),
-					  inputPath_ + "tmpout" + std::to_string(i+1),
-					  inputPath_ + std::to_string(iteration) + std::to_string(i));
-				++i;
-			}
-			else
-			{
-				cout << "Merge " << "tmpout" + std::to_string(i-1) << " and " << "tmpout" + std::to_string(i) << " into " << std::to_string(iteration) + std::to_string(i) <<  "\n";
-				merge(inputPath_ + std::to_string(iteration) + std::to_string(i),
-  					  inputPath_ + "tmpout" + std::to_string(i),
-					  inputPath_ + std::to_string(iteration) + std::to_string(i));
-				break;
-				++iteration;
-			}
+			cout << "\nCommit.";
+			commit();
+			cout << "\n";
+			iterations = filesList_.size() / 2;
+			iteration = 0;
 		}
 	}
+	cout << "Finalize.";
+	auto fs = filesList_.size();
+	for_each(tasks.begin(), tasks.end(), [&tasks](auto& task) mutable {	cout << "."; task.get(); tasks.pop_front(); });
+	cout << "\n";
+	auto inFileName1 = filesList_.front();
+	filesList_.pop_front();
+	auto inFileName2 = filesList_.front();
+	filesList_.pop_front();
+	merge(inFileName1, inFileName2, outputFile_);
 }
 
-void FileSort::merge(const std::string& inputFile1, const std::string& inputFile2, const std::string& outputFile)
+bool FileSort::merge(const std::string& inputFile1, const std::string& inputFile2, const std::string& outputFile)
 {
-	std::ifstream input1(inputFile1, std::ios::binary);
-	std::ifstream input2(inputFile2, std::ios::binary);
-	std::ofstream output(outputFile, std::ios::binary);
+	std::ifstream input1(inputPath_ + inputFile1, std::ios::binary);
+	std::ifstream input2(inputPath_ + inputFile2, std::ios::binary);
+	std::ofstream output(inputPath_ + outputFile, std::ios::binary);
 	FILETYPE buffer1, buffer2;
 	bool r1 = false;
 	bool r2 = false;
@@ -153,4 +194,5 @@ void FileSort::merge(const std::string& inputFile1, const std::string& inputFile
 		input2.close();
 		output.close();
 	}
+	return true;
 }

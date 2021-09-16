@@ -4,11 +4,11 @@
 #include <algorithm>
 #include <string>
 #include <vector>
-#include <thread>
-#include <limits>
+#include <list>
+#include <future>
 
 constexpr size_t KBYTE = 1024;
-constexpr size_t MAX_MEMORY = KBYTE * KBYTE * 16;
+constexpr size_t MAX_MEMORY = KBYTE * KBYTE * 4;
 using FILETYPE = unsigned int;
 using VectorUInt = std::vector<FILETYPE>;
 
@@ -18,17 +18,21 @@ class FileSort
 {
 public:
 	FileSort();
-	void startSort(const std::string& inputPath, const std::string& inputFile);
-private:
-	void sortAndSave(const std::string& outputFile);
-	void sortAndSave(const std::string& outputFile, VectorUInt&& data);
-	void sortAndMerge(const std::string& outputFile);
-	void merge(const std::string& inputFile1, const std::string& inputFile2, const std::string& outputFile);
 
-	VectorUInt data_;
+	void startSort(const std::string& inputPath, const std::string& inputFile, const std::string& outpuFile);
+
+private:
+	void sortInput();
+	bool sortAndSave(size_t fileIndex, VectorUInt&& data);
+	void sortAndMerge(const std::string& outputFile);
+	bool merge(const std::string& inputFile1, const std::string& inputFile2, const std::string& outputFile);
+
 	size_t vectorSize_;
 	size_t threadsMaxCount_ = 4;
 	size_t tempFileCount_ = 0;
 	std::string inputPath_;
+	std::string inputFile_;
+	std::string outputFile_;
+	std::list<std::string> filesList_;
 };
 

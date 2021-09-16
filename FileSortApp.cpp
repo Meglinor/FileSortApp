@@ -14,7 +14,7 @@ public:
 	~SimpleTimer() {
 		auto end = std::chrono::high_resolution_clock::now();
 		std::chrono::duration<float> duration = end - start;
-		cout << duration.count() << "\n";
+		cout << "Estimated time: " << duration.count() << "\n";
 	}
 private:
 	std::chrono::time_point<std::chrono::steady_clock> start, end;
@@ -32,10 +32,20 @@ int main(int argc, char* argv[])
 {
 	SimpleTimer simpleTimer;
 	FileSort fileSort;
+	std::string input = "input";
+	std::string output = "output";
+	if (argc >= 3)
+	{
+		input = std::string(argv[1]);
+		output = std::string(argv[2]);
+	}
 
-	fileSort.startSort(SplitFilename(std::string(argv[0])), "input");
+	fileSort.startSort(SplitFilename(std::string(argv[0])), input, output);
 
     std::cout << "Operation complete!\n";
+	simpleTimer.~SimpleTimer();
+	std::cout << "Press any key to continue . . .\n";
+	std::cin.get();
 }
 
 // Запуск программы: CTRL+F5 или меню "Отладка" > "Запуск без отладки"
