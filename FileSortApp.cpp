@@ -1,7 +1,11 @@
+<<<<<<< HEAD
+﻿#include <iostream>
+=======
 ﻿// FileSortApp.cpp : Этот файл содержит функцию "main". Здесь начинается и заканчивается выполнение программы.
 //
 
 #include <iostream>
+>>>>>>> 96177cc8b3570d4e0d6b5b25bac3d7d28fbf3180
 #include <chrono>
 #include "FileSort.h"
 
@@ -21,7 +25,11 @@ private:
 };
 
 
+<<<<<<< HEAD
+std::string SplitFilename(const std::string& str) 
+=======
 std::string SplitFilename(const std::string& str)
+>>>>>>> 96177cc8b3570d4e0d6b5b25bac3d7d28fbf3180
 {
 	size_t found;
 	found = str.find_last_of("/\\");
@@ -30,6 +38,28 @@ std::string SplitFilename(const std::string& str)
 
 int main(int argc, char* argv[])
 {
+<<<<<<< HEAD
+// namespace for SimpleTimer	
+	{
+		SimpleTimer simpleTimer;
+		FileSort fileSort;
+
+		std::string input = "input";
+		std::string output = "output";
+		if (argc >= 3)
+		{
+			input = std::string(argv[1]);
+			output = std::string(argv[2]);
+		}
+
+		fileSort.startSort(SplitFilename(std::string(argv[0])), input, output);
+
+		std::cout << "Operation complete!\n";
+	}
+	std::cout << "Press any key to continue . . .\n";
+	std::cin.get();
+}
+=======
 	SimpleTimer simpleTimer;
 	FileSort fileSort;
 	std::string input = "input";
@@ -58,3 +88,4 @@ int main(int argc, char* argv[])
 //   4. В окне "Список ошибок" можно просматривать ошибки.
 //   5. Последовательно выберите пункты меню "Проект" > "Добавить новый элемент", чтобы создать файлы кода, или "Проект" > "Добавить существующий элемент", чтобы добавить в проект существующие файлы кода.
 //   6. Чтобы снова открыть этот проект позже, выберите пункты меню "Файл" > "Открыть" > "Проект" и выберите SLN-файл.
+>>>>>>> 96177cc8b3570d4e0d6b5b25bac3d7d28fbf3180
